@@ -1,104 +1,113 @@
-# Zero Config Devcontainer
+# Azure DevOps Backlog Quality Toolkit
 
-> A language-agnostic GitHub Template Repository with a fully configured dev container, GitHub Codespaces support, and AI coding assistants (Claude Code, GitHub Copilot, Gemini) ready out of the box.
+> A ready-to-run dev container wired to the **Azure DevOps MCP server**, with a suite of single-purpose prompts for auditing backlog quality in Azure DevOps — driven from Claude Code and other pre-installed AI assistants.
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/mr-pedro-damasio/zero-config-devcontainer)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/mr-pedro-damasio/test-azure-devops-mcp)
 
 ---
 
 ## Overview
 
-This template provides a zero-configuration starting point for any new project. The development environment runs identically in GitHub Codespaces and in a local VS Code dev container. Language runtimes, frameworks, and project-specific tooling are intentionally left out — they are added after the project is created from this template.
+This repository is a self-contained environment for **auditing Azure DevOps backlog quality**. It pairs a zero-configuration dev container with the [Azure DevOps MCP server](https://github.com/microsoft/azure-devops-mcp) and a curated suite of read-only audit prompts.
+
+The scope is **work items only** — descriptions, acceptance criteria, estimates, hierarchy, iterations, and hygiene. It never touches repos, pipelines, or code, and every check is **strictly read-only**: it reports findings and never creates, updates, or links work items.
+
+The development environment runs identically in GitHub Codespaces and in a local VS Code dev container.
 
 ---
 
 ## What's Included
 
-- **Dev Container**: Ubuntu-based container with Node.js LTS and GitHub CLI
-- **AI Assistants**: Claude Code, GitHub Copilot, Gemini CLI, opencode — all pre-installed
-- **Agent Instructions**: Structured guidance for AI tools via `CLAUDE.md` → `AGENTS.md` → `.github/copilot-instructions.md`
-- **VS Code Config**: Recommended extensions — GitHub Copilot, GitHub Copilot Chat, Claude Code, Gemini Code Assist, GitHub Codespaces, Dev Containers, RemoteHub
-- **Git Configuration**: `.gitignore` for env files, OS artifacts, and editor files
+- **Backlog audit suite** — 16 single-purpose prompts in [`PROMPTS.md`](PROMPTS.md), grouped into Completeness, Structure, Hygiene, and Readiness. Each produces a deterministic, factual Markdown report.
+- **Shared conventions** — [`SHARED_CONVENTIONS.md`](SHARED_CONVENTIONS.md) (v2) defines the process-agnostic rules every prompt inherits: preflight capability checks, category→state-name translation, pagination/truncation handling, text normalization, and the report output contract.
+- **Azure DevOps MCP server** — pre-configured in [`.mcp.json`](.mcp.json) for the `DSTILuzSaude` project, run via `npx -y @azure-devops/mcp`.
+- **Dev Container** — Ubuntu-based, with Node.js, GitHub CLI, and Azure CLI.
+- **AI Assistants** — Claude Code, GitHub Copilot, Antigravity CLI, Codex, and opencode — all pre-installed.
+- **Git configuration** — `.gitignore` for env files, OS artifacts, and editor files.
 
 ---
 
 ## Getting Started
 
-### Creating a new repository from this template
-
-Click **"Use this template"** at the top of the [GitHub repository page](https://github.com/mr-pedro-damasio/zero-config-devcontainer), or use the GitHub CLI:
-
-```bash
-gh repo create my-project --template mr-pedro-damasio/zero-config-devcontainer
-```
-
-Then follow one of the options below to open your new project.
-
 ### Option 1 — GitHub Codespaces (recommended)
 
 1. Click **Open in GitHub Codespaces** above, or go to **Code → Codespaces → New codespace**.
-2. Wait for the environment to build (first run takes a few minutes).
-3. Copy `.env.example` to `.env` and fill in the required values.
-4. You're ready to develop.
+2. Wait for the environment to build (first run takes a few minutes — `post-create.sh` installs the AI CLIs).
+3. Authenticate to Azure DevOps (see [Authentication](#authentication)).
+4. Run an audit (see [Running an audit](#running-an-audit)).
 
 ### Option 2 — Dev Container (local)
 
 **Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop) and the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) for VS Code.
 
-1. Clone the repository.
-2. Open the project in VS Code.
-3. When prompted, click **Reopen in Container** (or run `Dev Containers: Reopen in Container` from the command palette).
-4. Copy `.env.example` to `.env` and fill in the required values.
-5. You're ready to develop.
+1. Clone the repository and open it in VS Code.
+2. When prompted, click **Reopen in Container** (or run `Dev Containers: Reopen in Container` from the command palette).
+3. Authenticate to Azure DevOps (see [Authentication](#authentication)).
+4. Run an audit (see [Running an audit](#running-an-audit)).
 
 ---
 
-## Environment Variables
+## Authentication
 
-All configuration is managed via environment variables. See `.env.example` for the full list with descriptions.
+The Azure DevOps MCP server authenticates through the Azure CLI. Sign in once per environment:
 
 ```bash
-cp .env.example .env
-# Edit .env with your values
+az login
 ```
 
-> **Never commit `.env` to version control.**
+The MCP server is scoped to the `DSTILuzSaude` Azure DevOps organization/project via [`.mcp.json`](.mcp.json). To target a different project, change the argument passed to `@azure-devops/mcp`. If you need to (re)register the server manually:
+
+```bash
+claude mcp add --scope project azure-devops -- npx -y @azure-devops/mcp DSTILuzSaude
+```
+
+(This is the command recorded in `INSTALL_AZURE_DEVOPS_MSCP.md`.)
+
+---
+
+## Running an audit
+
+Each prompt in [`PROMPTS.md`](PROMPTS.md) is a self-contained backlog check. To run one, open Claude Code and give it the prompt text along with the target project:
+
+1. Pick a check from `PROMPTS.md` (e.g. *Prompt 4: Orphan Detector*).
+2. Paste its prompt into Claude Code, supplying the required `project` parameter.
+3. The check runs the preflight from `SHARED_CONVENTIONS.md`, queries Azure DevOps via the MCP server, and writes a report.
+
+Reports are written to `./backlog-reports/` as
+`backlog-check-<check-slug>-<project>-<YYYY-MM-DD>.md`. They share a common table format so multiple check reports can be concatenated into a single backlog-health document. Re-running a check on the same day overwrites its own file (reports are idempotent per day).
+
+See the [Prompt Index](PROMPTS.md#prompt-index) in `PROMPTS.md` for the full catalogue of checks, file slugs, and severity anchors.
 
 ---
 
 ## AI Tools
 
-The following AI coding assistants are pre-installed and available in this environment:
+The following AI coding assistants are pre-installed in this environment:
 
 | Tool | CLI | VS Code Extension |
 |------|-----|-------------------|
 | [Claude Code](https://claude.ai/code) | `claude` | Anthropic Claude Code |
-| [GitHub Copilot](https://github.com/features/copilot) | — | GitHub Copilot |
-| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `gemini` | Gemini Code Assist |
+| [GitHub Copilot](https://github.com/features/copilot) | `copilot` | GitHub Copilot / Copilot Chat |
+| [Antigravity CLI](https://antigravity.google/product/antigravity-cli) | `agy` | Gemini Code Assist |
+| [Codex](https://developers.openai.com/codex/cli) | `codex` | OpenAI ChatGPT |
 | [opencode](https://opencode.ai) | `opencode` | — |
 
----
-
-## Development
-
-This template is intentionally stack-agnostic. After creating a project from it:
-
-1. Choose your language/runtime and add it as a devcontainer feature in `.devcontainer/devcontainer.json`, or create a custom `.devcontainer/Dockerfile` and reference it from `devcontainer.json`.
-2. Install project dependencies (e.g., `npm install`, `pip install`, `cargo build`).
-3. Copy `.env.example` to `.env` and configure environment variables.
-4. Update `README.md` with project-specific instructions.
-5. Update `AGENTS.md` with project-specific conventions.
+Agent behavior and repository conventions are defined in `CLAUDE.md` → `AGENTS.md` → `.github/copilot-instructions.md`.
 
 ---
 
-## Contributing
+## Repository Layout
 
-Contributions to this template are welcome! Please open an issue or pull request on [GitHub](https://github.com/mr-pedro-damasio/zero-config-devcontainer).
+| Path | Purpose |
+|------|---------|
+| `PROMPTS.md` | The 16 backlog-quality audit prompts, grouped by category. |
+| `SHARED_CONVENTIONS.md` | v2 conventions inherited by every prompt (preflight, guardrails, output contract). |
+| `.mcp.json` | Azure DevOps MCP server configuration. |
+| `INSTALL_AZURE_DEVOPS_MSCP.md` | Manual MCP registration command. |
+| `.devcontainer/` | Dev container definition and post-create setup. |
+| `AGENTS.md` / `CLAUDE.md` | Agent instructions and repository conventions. |
 
-When contributing:
-- Keep the template language-agnostic (do not add stack-specific tooling to the base config).
-- Test changes in both GitHub Codespaces and local dev containers.
-- Update documentation (README, AGENTS.md) to reflect any changes.
+---
 
 ## License
 
